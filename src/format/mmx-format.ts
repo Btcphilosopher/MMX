@@ -1,86 +1,72 @@
-// Complete binary parser and encoder implementation for MMX format
+// MMX Binary Parser and Encoder
 
-class MMXParser {
-    private header: Buffer;
-    private blocks: Block[];
-
-    constructor(data: Buffer) {
-        this.header = data.slice(0, 32);
-        this.blocks = this.parseBlocks(data.slice(32));
-    }
-
-    private parseBlocks(data: Buffer): Block[] {
-        const blocks = [];
-        let offset = 0;
-
-        while (offset < data.length) {
-            const blockType = data.readUInt8(offset);
-            const blockLength = data.readUInt32LE(offset + 1);
-            const blockData = data.slice(offset + 5, offset + 5 + blockLength);
-
-            switch (blockType) {
-                case 0x01:
-                    blocks.push(this.parseMetadata(blockData));
-                    break;
-                case 0x02:
-                    blocks.push(this.parseVisual(blockData));
-                    break;
-                case 0x03:
-                    blocks.push(this.parseAudio(blockData));
-                    break;
-                case 0x04:
-                    blocks.push(this.parseInteraction(blockData));
-                    break;
-                case 0x05:
-                    blocks.push(this.parseSignature(blockData));
-                    break;
-                default:
-                    throw new Error(`Unknown block type: ${blockType}`);
-            }
-
-            offset += 5 + blockLength;
-        }
-
-        return blocks;
-    }
-
-    private parseMetadata(data: Buffer): MetadataBlock {
-        // Parse metadata block
-        return {} as MetadataBlock;
-    }
-
-    private parseVisual(data: Buffer): VisualBlock {
-        // Parse visual block
-        return {} as VisualBlock;
-    }
-
-    private parseAudio(data: Buffer): AudioBlock {
-        // Parse audio block
-        return {} as AudioBlock;
-    }
-
-    private parseInteraction(data: Buffer): InteractionBlock {
-        // Parse interaction block
-        return {} as InteractionBlock;
-    }
-
-    private parseSignature(data: Buffer): SignatureBlock {
-        // Parse signature block
-        return {} as SignatureBlock;
-    }
-
-    private validateCRC32(data: Buffer, expectedCrc: number): boolean {
-        // Implement CRC32 validation
-        return true;
-    }
+// Interfaces for MMX structures
+interface MMXHeader {
+    version: number;
+    blockCount: number;
+    blockTypes: BlockType[];
 }
 
-class Ed25519 {
-    static verify(publicKey: Buffer, signature: Buffer, message: Buffer): boolean {
+interface MetadataBlock {
+    type: 'metadata';
+    data: any;
+}
+
+interface VisualBlock {
+    type: 'visual';
+    data: any;
+}
+
+interface AudioBlock {
+    type: 'audio';
+    data: any;
+}
+
+interface InteractionBlock {
+    type: 'interactions';
+    data: any;
+}
+
+interface SignatureBlock {
+    type: 'signature';
+    signature: string;
+}
+
+type BlockType = MetadataBlock | VisualBlock | AudioBlock | InteractionBlock | SignatureBlock;
+
+// MMX Parser implementation
+class MMXParser {
+    private header: MMXHeader;
+    private blocks: BlockType[];
+
+    constructor(buffer: ArrayBuffer) {
+        // Parse header
+        this.header = this.parseHeader(buffer);
+        // Parse blocks
+        this.blocks = this.parseBlocks(buffer);
+        this.validateCRC(buffer);
+    }
+
+    private parseHeader(buffer: ArrayBuffer): MMXHeader {
+        // Implement header parsing logic
+        return { version: 1, blockCount: 5, blockTypes: [] };
+    }
+
+    private parseBlocks(buffer: ArrayBuffer): BlockType[] {
+        // Implement block parsing logic
+        return [];
+    }
+
+    private validateCRC(buffer: ArrayBuffer): void {
+        // Implement CRC32 validation
+    }
+
+    private verifySignature(signature: string): boolean {
         // Implement Ed25519 signature verification
         return true;
     }
 }
 
-// Export necessary components
-export { MMXParser, Ed25519 };
+// Usage Example:
+const exampleBuffer = new ArrayBuffer(256); // Replace with real data
+const parser = new MMXParser(exampleBuffer);
