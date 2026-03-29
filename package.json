@@ -1,1 +1,39 @@
-{\n  "name": "MMX",\n  "version": "1.0.0",\n  "description": "MMX Project",\n  "main": "index.js",\n  "scripts": {\n    "start": "node index.js",\n    "dev": "nodemon index.js"\n  },\n  "dependencies": {\n    "dotenv": "^10.0.0",\n    "express": "^4.17.1",\n    "libsodium.js": "^0.7.7",\n    "redis": "^3.1.2",\n    "tweetnacl": "^1.0.3",\n    "ws": "^7.4.6"\n  },\n  "devDependencies": {\n    "nodemon": "^2.0.4",\n    "typescript": "^4.3.2"\n  }\n}
+{
+  "name": "mmx",
+  "version": "1.0.0",
+  "description": "MMX - Multimedia Experience Protocol",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/relay/relay-server.js",
+    "dev": "ts-node src/relay/relay-server.ts",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts"
+  },
+  "keywords": ["mmx", "multimedia", "nostr", "relay", "decentralized"],
+  "author": "Btcphilosopher",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.14.2",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "tweetnacl": "^1.0.3",
+    "libsodium.js": "^0.7.11",
+    "lru-cache": "^10.0.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "ts-node": "^10.9.1",
+    "@types/node": "^20.5.9",
+    "@types/express": "^4.17.17",
+    "@types/ws": "^8.5.5",
+    "@types/lru-cache": "^7.10.10",
+    "nodemon": "^3.0.1",
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
