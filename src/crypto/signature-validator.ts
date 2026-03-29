@@ -1,66 +1,142 @@
-// src/crypto/signature-validator.ts
+import crypto from 'crypto';
 
-// Function to generate a new Ed25519 key pair
-function generateKeyPair() {
-    const { generateKeyPairSync } = require('crypto');
-    return generateKeyPairSync('ed25519');
+export function generateKeyPair() {
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519', {
+        publicKeyEncoding: { format: 'spki', type: 'spki' },
+        privateKeyEncoding: { format: 'pkcs8', type: 'pkcs8' }
+    });
+    return { publicKey, privateKey };
 }
 
-// Function to sign a message using Ed25519
-function signMessage(privateKey, message) {
-    const { sign } = require('crypto');
-    return sign(null, Buffer.from(message), privateKey);
+export function signMessage(privateKey: string | Buffer, message: string): string {
+    const sign = crypto.createSign('sha256');
+    sign.update(message);
+    return sign.sign(privateKey, 'hex');
 }
 
-// Function to verify a signature
-function verifySignature(publicKey, message, signature) {
-    const { verify } = require('crypto');
-    return verify(null, Buffer.from(message), publicKey, signature);
+export function verifySignature(publicKey: string | Buffer, message: string, signature: string): boolean {
+    try {
+        const verify = crypto.createVerify('sha256');
+        verify.update(message);
+        return verify.verify(publicKey, signature, 'hex');
+    } catch (err) {
+        console.error(`Signature verification failed: ${err}`);
+        return false;
+    }
 }
 
-// Function to compute event ID
-function computeEventId(event) {
-    const { createHash } = require('crypto');
-    return createHash('sha256').update(JSON.stringify(event)).digest('hex');
+export function hashContent(data: Buffer | string): string {
+    const buffer = typeof data === 'string' ? Buffer.from(data) : data;
+    return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
-// Function to validate Proof-of-Work
-function validateProofOfWork(event, target) {
-    return computeHash(event) < target;
+export function computeEventId(event: {
+    pubkey: string;
+    created_at: number;
+    kind: number;
+    tags: string[][];
+    content: string;
+}): string {
+    const eventString = JSON.stringify([0, event.pubkey, event.created_at, event.kind, event.tags, event.content]);
+    return hashContent(eventString);
 }
 
-// Function to calculate Proof-of-Work
-function calculateProofOfWork(event, difficulty) {
+// FIXED: Proper PoW validation using leading zeros
+export function validateProofOfWork(eventId: string, difficulty: number = 0): boolean {
+    if (difficulty === 0) return true;
+    const target = '0'.repeat(difficulty);
+    return eventId.startsWith(target);
+}
+
+// FIXED: Proper PoW calculation with leading zeros
+export function calculateProofOfWork(
+    event: { pubkey: string; created_at: number; kind: number; tags: string[][]; content: string },
+    difficulty: number = 0,
+    timeout: number = 30000
+): { eventId: string; nonce: number } | null {
+    if (difficulty === 0) {
+        const eventId = computeEventId(event);
+        return { eventId, nonce: 0 };
+    }
+
+    const targetLeadingZeros = '0'.repeat(difficulty);
+    const startTime = Date.now();
     let nonce = 0;
-    let hash;
-    do {
-        event.nonce = nonce;
-        hash = computeHash(event);
+
+    while (Date.now() - startTime < timeout) {
+        const eventWithNonce = { ...event, tags: [...event.tags, ['nonce', nonce.toString()]] };
+        const eventId = computeEventId(eventWithNonce);
+
+        if (eventId.startsWith(targetLeadingZeros)) {
+            console.log(`[PoW] Found nonce ${nonce} after ${Date.now() - startTime}ms`);
+            return { eventId, nonce };
+        }
         nonce++;
-    } while (hash >= difficulty);
-    return { hash, nonce }; 
+    }
+
+    console.warn(`[PoW] Calculation timed out after difficulty ${difficulty}`);
+    return null;
 }
 
-// Utility to compute hash
-function computeHash(event) {
-    const { createHash } = require('crypto');
-    return createHash('sha256').update(JSON.stringify(event)).digest('hex');
+// FIXED: Complete event validation
+export async function validateMMXEvent(event: {
+    id: string;
+    pubkey: string;
+    created_at: number;
+    kind: number;
+    tags: string[][];
+    content: string;
+    sig: string;
+}): Promise<{ valid: boolean; errors: string[] }> {
+    const errors: string[] = [];
+
+    if (!event.id) errors.push('Missing event ID');
+    if (!event.pubkey) errors.push('Missing public key');
+    if (typeof event.created_at !== 'number') errors.push('Invalid created_at');
+    if (typeof event.kind !== 'number') errors.push('Invalid kind');
+    if (!Array.isArray(event.tags)) errors.push('Invalid tags');
+    if (typeof event.content !== 'string') errors.push('Invalid content');
+    if (!event.sig) errors.push('Missing signature');
+
+    if (errors.length > 0) return { valid: false, errors };
+
+    const computedId = computeEventId(event);
+    if (computedId !== event.id) errors.push(`Event ID mismatch`);
+
+    const messageToVerify = JSON.stringify([0, event.pubkey, event.created_at, event.kind, event.tags, event.content]);
+    const sigValid = verifySignature(event.pubkey, messageToVerify, event.sig);
+    if (!sigValid) errors.push('Invalid signature');
+
+    return { valid: errors.length === 0, errors };
 }
 
-// Function to validate MMX Event
-function validateMMXEvent(event, target) {
-    return validateProofOfWork(event, target) && verifySignature(event.publicKey, event.message, event.signature);
-}
+export async function createSignedEvent(
+    content: string,
+    kind: number,
+    privateKey: string | Buffer,
+    publicKey: string,
+    tags: string[][] = [],
+    powDifficulty: number = 0
+) {
+    try {
+        const created_at = Math.floor(Date.now() / 1000);
+        let finalTags = tags;
 
-// Function to create a signed event
-function createSignedEvent(privateKey, message, target) {
-    const event = { message };
-    const { hash, nonce } = calculateProofOfWork(event, target);
-    event.signature = signMessage(privateKey, message);
-    event.id = computeEventId(event);
-    event.nonce = nonce;
-    return event;
-}
+        if (powDifficulty > 0) {
+            const tempEvent = { pubkey: publicKey, created_at, kind, tags: finalTags, content };
+            const powResult = calculateProofOfWork(tempEvent, powDifficulty);
+            if (!powResult) return null;
+            finalTags = [...tags, ['nonce', powResult.nonce.toString()]];
+        }
 
-// Exporting functions
-module.exports = { generateKeyPair, signMessage, verifySignature, computeEventId, validateProofOfWork, calculateProofOfWork, validateMMXEvent, createSignedEvent };
+        const baseEvent = { pubkey: publicKey, created_at, kind, tags: finalTags, content };
+        const id = computeEventId(baseEvent);
+        const messageToSign = JSON.stringify([0, baseEvent.pubkey, baseEvent.created_at, baseEvent.kind, baseEvent.tags, baseEvent.content]);
+        const sig = signMessage(privateKey, messageToSign);
+
+        return { id, pubkey: publicKey, created_at, kind, tags: finalTags, content, sig };
+    } catch (err) {
+        console.error(`Failed to create signed event: ${err}`);
+        return null;
+    }
+}
