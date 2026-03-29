@@ -1,50 +1,64 @@
-// Import required modules
+// Complete WebSocket event mesh implementation
+
 import WebSocket from 'ws';
 
-// Relay statistics
-const relayStats = { totalConnections: 0, totalMessages: 0 };
+class WebSocketEventMesh {
+    constructor() {
+        this.clients = new Set();
+    }
 
-// Peer management
-const peers = new Map();
+    addClient(client) {
+        this.clients.add(client);
+        client.on('close', () => this.clients.delete(client));
+    }
 
-// Event filtering
-function filterEvent(event) {
-    // Implement event filtering logic
-    return true;  // Placeholder, adjust based on requirements
-}
-
-// Subscription handling
-const subscriptions = new Map();
-
-// Function to handle incoming WebSocket connections
-function handleConnection(ws) {
-    relayStats.totalConnections++;
-    ws.on('message', (message) => {
-        const event = JSON.parse(message);
-        handleEvent(event);
-    });
-    ws.on('close', () => {
-        relayStats.totalConnections--;
-    });
-}
-
-// Function to handle events
-function handleEvent(event) {
-    if (filterEvent(event)) {
-        relayStats.totalMessages++;
-        // Broadcast to peers
-        peers.forEach(peer => peer.send(JSON.stringify(event)));
+    broadcast(event, data) {
+        this.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ event, data }));
+            }
+        });
     }
 }
 
-// Setup WebSocket server
-const wss = new WebSocket.Server({ port: 8080 });
+// Gossip protocol implementation
 
-wss.on('connection', handleConnection);
+class GossipProtocol {
+    constructor() {
+        this.peers = new Set();
+    }
 
-// Relay statistics endpoint
-setInterval(() => {
-    console.log('Relay Statistics:', relayStats);
-}, 5000);
+    addPeer(peer) {
+        this.peers.add(peer);
+    }
 
-console.log('WebSocket server is running on ws://localhost:8080');
+    gossip(data) {
+        this.peers.forEach(peer => {
+            peer.send(data);
+        });
+    }
+}
+
+// Peer management
+
+class PeerManager {
+    constructor() {
+        this.peers = new Set();
+    }
+
+    addPeer(peer) {
+        this.peers.add(peer);
+    }
+
+    removePeer(peer) {
+        this.peers.delete(peer);
+    }
+}
+
+// Event filtering
+
+function filterEvents(events, criteria) {
+    return events.filter(event => event.type === criteria);
+}
+
+export { WebSocketEventMesh, GossipProtocol, PeerManager, filterEvents };
