@@ -1,0 +1,26 @@
+# Dockerfile.relay
+
+# Use Node.js Alpine image
+FROM node:alpine
+
+# Set working directory
+WORKDIR /usr/src/app
+
+# Copy package.json and package-lock.json for npm install
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the application
+COPY . .
+
+# Build TypeScript files
+RUN npm run build
+
+# Expose ports
+EXPOSE 8080
+EXPOSE 8081
+
+# Start the relay server
+CMD [ "npm", "start" ]
